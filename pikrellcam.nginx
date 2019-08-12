@@ -1,0 +1,35 @@
+server {
+	listen 80 default_server;
+	listen [::]:80 default_server;
+
+	# SSL configuration
+	#
+	# listen 443 ssl default_server;
+	# listen [::]:443 ssl default_server;
+
+	access_log off;
+
+	root /srv/http/pikrellcam/www;
+	auth_basic "Restricted";
+	auth_basic_user_file /srv/http/pikrellcam/www/.htpasswd;
+
+	index index.php index.html index.htm;
+
+	server_name _;
+
+	location / {
+		# First attempt to serve request as file, then
+		# as directory, then fall back to displaying a 404.
+		try_files $uri $uri/ =404;
+	}
+
+	# pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+	location ~ \.php$ {
+		include fastcgi.conf;
+
+	#	# With php-cgi alone:
+	#	fastcgi_pass 127.0.0.1:9000;
+	#	# With php-fpm:
+		fastcgi_pass unix:/run/php-fpm/php-fpm.sock;
+	}
+}

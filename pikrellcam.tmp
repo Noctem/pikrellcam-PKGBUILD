@@ -1,0 +1,8 @@
+f	/tmp/pikrellcam.log	0644	pikrellcam	http	-	-
+d	/run/pikrellcam	0755	pikrellcam	http	-	-
+f	/run/pikrellcam/state	0644	pikrellcam	http	-	-
+p+	/srv/http/pikrellcam/www/FIFO	0664	pikrellcam	http	-	-
+p+	/srv/http/pikrellcam/www/motion_detects_FIFO	0664	pikrellcam	http	-	-
+p+	/srv/http/pikrellcam/www/audio_FIFO	0664	pikrellcam	http	-	-
+L+	/srv/http/pikrellcam/www/state	-	-	-	-	/run/pikrellcam/state
+L+	/srv/http/pikrellcam/www/mjpeg.jpg	-	-	-	-	/run/pikrellcam/mjpeg.jpg

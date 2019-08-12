@@ -1,0 +1,917 @@
+diff --git a/etc/pikrellcam.sudoers b/etc/pikrellcam.sudoers
+index 43db25b..bf2f4e0 100644
+--- a/etc/pikrellcam.sudoers
++++ b/etc/pikrellcam.sudoers
+@@ -1,4 +1,4 @@
+-# If started from the web page, real user needs to be pi.
+-# so give www-data permission to run sudo -u pi pikrellcam
++# If started from the web page, real user needs to be pikrellcam.
++# so give http permission to run sudo -u pikrellcam pikrellcam
+ 
+-www-data ALL=(USER) NOPASSWD: pikrellcam
++http ALL=(pikrellcam) NOPASSWD: /usr/bin/pikrellcam
+diff --git a/scripts-dist/_fix_thumbs b/scripts-dist/_fix_thumbs
+index 62fd008..aa893d2 100755
+--- a/scripts-dist/_fix_thumbs
++++ b/scripts-dist/_fix_thumbs
+@@ -10,23 +10,11 @@ ARCHIVE_DIR=$2
+ LOG=$3
+ TEST=$4
+ 
+-#MEDIA_DIRECTORY=/home/pi/pikrellcam/www/media
+-#ARCHIVE_DIR=/home/pi/pikrellcam/www/media/archive
+-
+-BUSTER=10
+-V=`cat /etc/debian_version`
+-DEB_VERSION="${V%.*}"
+-
+-if ((DEB_VERSION >= BUSTER))
+-then
+-	AV_PGM=ffmpeg
+-else
+-	AV_PGM=avconv
+-fi
++AV_PGM=ffmpeg
+ 
+ function check_thumb
+ 	{
+-	TMP_DIR=/var/run/pikrellcam
++	TMP_DIR=/run/pikrellcam
+ 	BASE=`basename $1`
+ 	PREFIX=${BASE:0:3}
+ 	DIR=`dirname $1`
+diff --git a/scripts-dist/_init b/scripts-dist/_init
+index cc87237..188aaaa 100755
+--- a/scripts-dist/_init
++++ b/scripts-dist/_init
+@@ -22,9 +22,6 @@ LOG_FILE=$6
+ SERVOS_ENABLE=$7
+ LOOP_DIR=$8
+ 
+-STATE_FILE=/run/pikrellcam/state
+-MJPEG_FILE=/run/pikrellcam/mjpeg.jpg
+-
+ if [ "$LOG_FILE" == "" ]
+ then
+ 	LOG_FILE = /dev/null
+@@ -35,26 +32,12 @@ cd $INSTALL_DIR
+ # note there is a tab before 'define' in the CMD assignments.
+ #
+ WWW_CONFIG=$INSTALL_DIR/www/config.php
+-PIKRELLCAM=$INSTALL_DIR/pikrellcam
++PIKRELLCAM=/usr/bin/pikrellcam
+ ARCHIVE_LINK=www/archive
+ LOOP_LINK=www/loop
+ MEDIA_LINK=www/media
+-STATE_LINK=www/state
+-MJPEG_LINK=www/mjpeg.jpg
+ VERSION=`pikrellcam --version`
+ 
+-if [ ! -h $STATE_LINK ]
+-then
+-	echo "  making $STATE_LINK link to $STATE_FILE" >> $LOG_FILE
+-	ln -s $STATE_FILE $STATE_LINK
+-fi
+-
+-if [ ! -h $MJPEG_LINK ]
+-then
+-	echo "  making $MJPEG_LINK link to $MJPEG_FILE" >> $LOG_FILE
+-	ln -s $MJPEG_FILE $MJPEG_LINK
+-fi
+-
+ if [ ! -h $MEDIA_LINK ]
+ then
+ 	echo "  making $MEDIA_LINK link to $MEDIA_DIR" >> $LOG_FILE
+@@ -147,23 +130,3 @@ then
+ else
+ 	echo "  $WWW_CONFIG: SERVOS_ENABLE not changed." >> $LOG_FILE
+ fi
+-
+-if ! fgrep -q $VERSION $WWW_CONFIG
+-then
+-	CMD="/VERSION/c\	define\(\"VERSION\", \"$VERSION\"\);"
+-	sed -i "$CMD" $WWW_CONFIG
+-	echo "  $WWW_CONFIG: VERSION updated to: $VERSION" >> $LOG_FILE
+-else
+-	echo "  $WWW_CONFIG: VERSION not changed." >> $LOG_FILE
+-fi
+-
+-cd $INSTALL_DIR/scripts-dist
+-for script in *
+-do
+-	if [ ! -f ../scripts/$script ] && [ "${script:0:1}" != "_" ] \
+-		&& [ "${script:0:4}" != "pkc_" ] && [ "${script:0:8}" != "example_" ]
+-	then
+-		cp $script ../scripts 
+-	fi
+-done
+-
+diff --git a/scripts-dist/_stills_thumbs_rescan b/scripts-dist/_stills_thumbs_rescan
+index ca70b92..b4242db 100755
+--- a/scripts-dist/_stills_thumbs_rescan
++++ b/scripts-dist/_stills_thumbs_rescan
+@@ -30,13 +30,11 @@ fi
+ if [ ! -d $STILLS_FULL_DIR/.thumbs ]
+ then
+ 	mkdir $STILLS_FULL_DIR/.thumbs
+-	sudo chown :www-data $STILLS_FULL_DIR/.thumbs
+-	sudo chmod 775  $STILLS_FULL_DIR/.thumbs
+ fi
+ 
+ cd $STILLS_FULL_DIR
+ 
+-LOCK_FILE=/tmp/pikrellcam-stills-rescan-lock
++LOCK_FILE=/run/pikrellcam/pikrellcam-stills-rescan-lock
+ 
+ if [ -f $LOCK_FILE ]
+ then
+diff --git a/scripts-dist/_timelapse-convert b/scripts-dist/_timelapse-convert
+index 98e01cd..0f50f7e 100755
+--- a/scripts-dist/_timelapse-convert
++++ b/scripts-dist/_timelapse-convert
+@@ -38,16 +38,7 @@ LOG_FILE=$4
+ COMMAND_FIFO=$5
+ FILENAME_FORMAT=$6
+ 
+-BUSTER=10
+-V=`cat /etc/debian_version`
+-DEB_VERSION="${V%.*}"
+-
+-if ((DEB_VERSION >= BUSTER))
+-then
+-	AV_PGM=ffmpeg
+-else
+-	AV_PGM=avconv
+-fi
++AV_PGM=ffmpeg
+ 
+ #
+ # Requires libav-tools
+diff --git a/scripts-dist/ds18b20.py b/scripts-dist/ds18b20.py
+index d9ffa68..2d089ab 100755
+--- a/scripts-dist/ds18b20.py
++++ b/scripts-dist/ds18b20.py
+@@ -4,16 +4,16 @@ import sys
+ output = "terminal"
+ 
+ if len (sys.argv) < 2 :
+-	print "Usage: " + sys.argv[0] + " [C|F] {fifo}"
+-	print "    C or F must be given"
+-	print "    If \"fifo\" arg is present, write to PiKrellCam FIFO"
++	print("Usage: " + sys.argv[0] + " [C|F] {fifo}")
++	print("    C or F must be given")
++	print("    If \"fifo\" arg is present, write to PiKrellCam FIFO")
+ 	sys.exit(1)
+ 
+ mode = sys.argv[1]
+ if (mode != "F") and (mode != "C"):
+-	print "Usage: " + sys.argv[0] + " [C|F] {fifo}"
+-	print "    C or F must be given"
+-	print "    If \"fifo\" arg is present, write to PiKrellCam FIFO"
++	print("Usage: " + sys.argv[0] + " [C|F] {fifo}")
++	print("    C or F must be given")
++	print("    If \"fifo\" arg is present, write to PiKrellCam FIFO")
+ 	sys.exit(1)
+ 
+ if len (sys.argv) == 3 :
+@@ -30,9 +30,8 @@ def read_temp(device):
+ 	global mode
+ 	for count in range(0, 3):
+ 		path = "/sys/bus/w1/devices/" + device.rstrip() + "/w1_slave"
+-		file = open(path)
+-		lines = file.read()
+-		file.close()
++		with open(path) as file:
++			lines = file.read()
+ 
+ 		line1 = lines.split("\n")[0]
+ 		line2 = lines.split("\n")[1]
+@@ -65,10 +64,10 @@ try:
+ 	devices.close()
+ 	if output == "fifo":
+ #		fifo = open(home + "/pikrellcam/www/FIFO", "w")
+-		fifo = open("/home/pi/pikrellcam/www/FIFO", "w")
++		fifo = open("/srv/http/pikrellcam/www/FIFO", "w")
+ 		fifo.write("annotate_string append ds18b20 " + out_string + "\n")
+ 		fifo.close()
+ 	else:
+-		print out_string
++		print(out_string)
+ except:
+-	print "no devices"
++	print("no devices")
+diff --git a/scripts-dist/example-motion-detects-fifo b/scripts-dist/example-motion-detects-fifo
+index 2037a22..c2452bf 100755
+--- a/scripts-dist/example-motion-detects-fifo
++++ b/scripts-dist/example-motion-detects-fifo
+@@ -12,36 +12,35 @@
+ #
+ # This script can be terminated with a terminal ^C or by sending an "off"
+ # command to PiKrellCam:
+-#    echo "motion_detects_fifo_enable off" > /home/pi/pikrellcam/www/FIFO
++#    echo "motion_detects_fifo_enable off" > /srv/http/pikrellcam/www/FIFO
+ #
+ 
+ import os
+ import sys
+ import signal
+-import fcntl
+-import atexit
+ import select
+-import StringIO
+ import time
+ 
++from io import StringIO
++
+ 
+ # Turn on pikrellcam motion detects writing to the motion_detects_FIFO
+ #
+-os.system('echo "motion_detects_fifo_enable on" > /home/pi/pikrellcam/www/FIFO')
++os.system('echo "motion_detects_fifo_enable on" > /srv/http/pikrellcam/www/FIFO')
+ 
+ # If ^C interrupted, send "off" to the command FIFO
+ # If external program sends "off", then this script will get an <off> tag
+ # read from the motion_detects_FIFO and exit.
+ #
+ def signal_handler(signum, frame):
+-    print '  Turning off motion_detects_fifo_enable'
+-	os.system('echo "motion_detects_fifo_enable off" > /home/pi/pikrellcam/www/FIFO')
++	print('  Turning off motion_detects_fifo_enable')
++	os.system('echo "motion_detects_fifo_enable off" > /srv/http/pikrellcam/www/FIFO')
+ 	sys.exit(0)
+ 
+ signal.signal(signal.SIGINT, signal_handler)
+ 
+ 
+-motion_detects_FIFO = '/home/pi/pikrellcam/www/motion_detects_FIFO'
++motion_detects_FIFO = '/srv/http/pikrellcam/www/motion_detects_FIFO'
+ detects_fifo = os.open(motion_detects_FIFO, os.O_RDONLY | os.O_NONBLOCK)
+ 
+ bufferSize = 1024
+@@ -62,39 +61,38 @@ while True:
+ 	#   region vectors.  If you care only about overall frame motion, look
+ 	#   for 'f' frame vectors.
+ 	#
+-	lines = StringIO.StringIO(data)
++	lines = StringIO(data.decode())
+ 	for line in lines.readlines():
+ 		line = line.strip('\n')
+-		print "FIFO read: " + line
++		print("FIFO read: " + line)
+ 
+ 		# If some program sends a "motion_detects_fifo_enable off" to the
+ 		# command FIFO, an <off> tag will be written to the motion_detects_FIFO.
+ 		#
+ 		if (line.find('<off>') == 0):
+-			print "    detected motion_detects_fifo_enable off - exiting."
++			print("    detected motion_detects_fifo_enable off - exiting.")
+ 			sys.exit(1)
+ 		elif (line.find('<motion') == 0):
+ 			state = 'motion'
+ 			# <motion t >  where t is system time with .1 second precision
+ 			m, t, b = line.split()
+-			print "    motion detected - system time " + t + " => " + time.asctime( time.localtime( int(float(t)) ) )
++			print("    motion detected - system time " + t + " => " + time.asctime( time.localtime( int(float(t)) ) ))
+ 		elif (line.find('</motion>') == 0):
+-			print ""
++			print("")
+ 			state = 'wait'
+ 		elif (state == 'motion'):
+ 			if (line[0] == "f"):
+ 				r, x, y, dx, dy, mag, count = line.split()
+-				print "    motion vector - frame:" + " mag=" + mag + " count=" + count
++				print("    motion vector - frame:" + " mag=" + mag + " count=" + count)
+ 			elif (line[0].isdigit()):
+ 				r, x, y, dx, dy, mag, count = line.split()
+-				print "    motion vector - region " + line[0] + ": mag=" + mag + " count=" + count
++				print("    motion vector - region " + line[0] + ": mag=" + mag + " count=" + count)
+ 			elif (line[0] == "b"):
+ 				b, count = line.split()
+-				print "    burst detect - count=" + count
++				print("    burst detect - count=" + count)
+ 			elif (line[0] == "e"):
+ 				e, code = line.split()
+-				print "    external trigger - code: " + code
++				print("    external trigger - code: " + code)
+ 			elif (line[0] == "a"):
+ 				a, level = line.split()
+-				print "    audio trigger - level=" + level
+-
++				print("    audio trigger - level=" + level)
+diff --git a/scripts-dist/example-motion-events b/scripts-dist/example-motion-events
+index 9e7bc91..fa5eeb5 100755
+--- a/scripts-dist/example-motion-events
++++ b/scripts-dist/example-motion-events
+@@ -13,7 +13,6 @@
+ # is run from a terminal.
+ 
+ import sys
+-import socket
+ import time
+ 
+ filename = '/run/pikrellcam/motion-events'
+@@ -23,7 +22,7 @@ state = 'wait'
+ event = 1
+ 
+ # sys.argv[1] is the $e value: motion, external or audio
+-print "on_motion_begin triggered by: " + sys.argv[1]
++print("on_motion_begin triggered by: " + sys.argv[1])
+ 
+ while 1:
+ 	where = file.tell()
+@@ -34,7 +33,7 @@ while 1:
+ 		continue
+ 	line = line.strip('\n')
+ 	if (line.find('<motion') == 0):
+-		print "  motion event number: " + str(event)
++		print("  motion event number: " + str(event))
+ 		event = event + 1
+ 		state = 'motion'
+ 	elif (line.find('</motion>') == 0):
+@@ -43,13 +42,13 @@ while 1:
+ 		sys.exit(1)
+ 	elif (state == 'motion'):
+ 		if (line[0].isdigit()):
+-			print "    motion direction - region: " + line[0]
++			print("    motion direction - region: " + line[0])
+ 		elif (line[0] == "b"):
+ 			b, count = line.split() 
+-			print "    burst detect - count: " + count
++			print("    burst detect - count: " + count)
+ 		elif (line[0] == "e"):
+ 			e, code = line.split() 
+-			print "    external trigger - code: " + code
++			print("    external trigger - code: " + code)
+ 		elif (line[0] == "a"):
+ 			a, level = line.split() 
+-			print "    audio trigger - level: " + level
++			print("    audio trigger - level: " + level)
+diff --git a/scripts-dist/example-motion-send-alarm1 b/scripts-dist/example-motion-send-alarm1
+index 06f02d1..7fbb4bb 100755
+--- a/scripts-dist/example-motion-send-alarm1
++++ b/scripts-dist/example-motion-send-alarm1
+@@ -14,7 +14,6 @@
+ # With this script only one alarm is sent per motion detect video.
+ # See example-motion-send-alarm2 for a different approach.
+ 
+-import sys
+ import socket
+ import time
+ 
+@@ -40,6 +39,6 @@ send_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+ msg_id = 1
+ for x in range(0, repeat):
+     msg = "%s:%d %s message alarm" % (from_host, msg_id, to_hosts)
+-#    print msg
+-    send_socket.sendto(msg, (PKC_MULTICAST_GROUP, PKC_MULTICAST_PORT))
++#    print(msg)
++    send_socket.sendto(msg.encode(), (PKC_MULTICAST_GROUP, PKC_MULTICAST_PORT))
+     time.sleep(delay)
+diff --git a/scripts-dist/example-motion-send-alarm2 b/scripts-dist/example-motion-send-alarm2
+index 9e658a1..f850442 100755
+--- a/scripts-dist/example-motion-send-alarm2
++++ b/scripts-dist/example-motion-send-alarm2
+@@ -38,7 +38,7 @@ import time
+ #   It should be greater than the holdoff in pkc-alarm.
+ #
+ to_hosts = "gkrellm4,rpi0,rpi1"
+-motion_region = 3
++motion_region = '3'
+ magnitude_limit = 12
+ count_limit = 20
+ holdoff = 6
+@@ -75,7 +75,7 @@ while 1:
+ 		file.seek(where)
+ 		continue
+ 	line = line.strip('\n')
+-#	print '==>' + line
++#	print('==>' + line)
+ 	if (line.find('<motion') == 0):
+ 		state = 'motion'
+ 	elif (line.find('</motion>') == 0):
+@@ -83,16 +83,16 @@ while 1:
+ 	elif (line.find('<end>') == 0):
+ 		sys.exit(1)
+ 	elif (state == 'motion'):
+-		if (line.startswith(str(motion_region))):
+-#			print line
++		if (line.startswith(motion_region)):
++#			print(line)
+ 			tnow = time.time()
+ 			if (tnow >= tsent + holdoff):
+ 				r, x, y, dx, dy, mag, count = line.split()
+ 				if (int(mag) >= magnitude_limit and int(count) >= count_limit):
+ 					for x in range(0, repeat):
+ 						msg = "%s:%d %s message alarm" % (from_host, msg_id, to_hosts)
+-#						 print msg
+-						send_socket.sendto(msg, (PKC_MULTICAST_GROUP, PKC_MULTICAST_PORT))
++#						 print(msg)
++						send_socket.sendto(msg.encode(), (PKC_MULTICAST_GROUP, PKC_MULTICAST_PORT))
+ 						time.sleep(delay)
+ 					tsent = tnow
+ 					msg_id = msg_id + 1
+diff --git a/scripts-dist/pkc-alarm b/scripts-dist/pkc-alarm
+index 36f57b3..60dfec7 100755
+--- a/scripts-dist/pkc-alarm
++++ b/scripts-dist/pkc-alarm
+@@ -62,9 +62,9 @@ def host_match(from_host, to_hosts):
+ 
+ 
+ while True:
+-	line = sock.recv(256)
++	line = sock.recv(256).decode()
+ 	tnow = time.time()
+-#	print line
++#	print(line)
+ 
+ 	from_host, to_hosts, msg_type, msg_body = line.split(' ', 3)
+ 	if (msg_type != 'message' or msg_body != 'alarm'):
+@@ -84,7 +84,7 @@ while True:
+ 		continue
+ 
+ 	if (id != idprev or tnow - tplay >= holdoff):
+-		print audio_command
++		print(audio_command)
+ 		os.system(audio_command)
+ 		tplay = tnow
+ 
+diff --git a/scripts-dist/pkc-motion b/scripts-dist/pkc-motion
+index 692debe..1e1dd7e 100755
+--- a/scripts-dist/pkc-motion
++++ b/scripts-dist/pkc-motion
+@@ -27,11 +27,11 @@ repeat = 4
+ delay = .05
+ 
+ def usage():
+-	print "usage: pkc-motion {host|host-list|all} <on|off>"
+-	print "    Multicast a motion_enable command to PiKrellCams on a LAN."
+-	print "    If host, host-list or all is not specified, all is assumed."
+-	print "    host-list is a comma separated list of hosts."
+-	print "    on or off must be given."
++	print("usage: pkc-motion {host|host-list|all} <on|off>")
++	print("    Multicast a motion_enable command to PiKrellCams on a LAN.")
++	print("    If host, host-list or all is not specified, all is assumed.")
++	print("    host-list is a comma separated list of hosts.")
++	print("    on or off must be given.")
+ 	sys.exit()
+ 
+ argc = len(sys.argv)
+@@ -48,14 +48,14 @@ if onoff == "on":
+ elif onoff == "off":
+ 	msg_id = 2
+ else:
+-	print 'Bad arg: ' + onoff
++	print('Bad arg: ' + onoff)
+ 	usage()
+ 
+ hostname = socket.gethostname()
+ 
+ for x in range(1, repeat + 1):
+ 	msg = "%s:%d %s command @motion_enable %s" % (hostname, msg_id, hosts, onoff)
+-#	print msg
+-	send_socket.sendto(msg, (PKC_MULTICAST_GROUP, PKC_MULTICAST_PORT))
++#	print(msg)
++	send_socket.sendto(msg.encode(), (PKC_MULTICAST_GROUP, PKC_MULTICAST_PORT))
+ 	time.sleep(delay)
+ 
+diff --git a/scripts-dist/pkc-reboot b/scripts-dist/pkc-reboot
+index 41fa2c6..fe8c25c 100755
+--- a/scripts-dist/pkc-reboot
++++ b/scripts-dist/pkc-reboot
+@@ -32,10 +32,10 @@ repeat = 4
+ delay = .05
+ 
+ def usage():
+-	print "usage: pkc-reboot <host|host-list|all>"
+-	print "Multicast a reboot command to PiKrellCams on a LAN."
+-	print "    host, host-list or all must be given."
+-	print "    host-list is a comma separated list of hosts."
++	print("usage: pkc-reboot <host|host-list|all>")
++	print("Multicast a reboot command to PiKrellCams on a LAN.")
++	print("    host, host-list or all must be given.")
++	print("    host-list is a comma separated list of hosts.")
+ 	sys.exit()
+ 
+ argc = len(sys.argv)
+@@ -44,7 +44,7 @@ if argc == 1:
+ elif argc == 2:
+ 	hosts = sys.argv[1]
+ else:
+-	print 'Bad number of args'
++	print('Bad number of args')
+ 	usage()
+ 
+ hostname = socket.gethostname()
+@@ -52,8 +52,8 @@ hostname = socket.gethostname()
+ msg_id = 1
+ for x in range(0, repeat):
+ 	msg = "%s:%d %s command @reboot" % (hostname, msg_id, hosts)
+-#	print msg
+-	send_socket.sendto(msg, (PKC_MULTICAST_GROUP, PKC_MULTICAST_PORT))
++#	print(msg)
++	send_socket.sendto(msg.encode(), (PKC_MULTICAST_GROUP, PKC_MULTICAST_PORT))
+ 	time.sleep(delay)
+ 
+ 
+@@ -64,6 +64,6 @@ time.sleep(1)
+ msg_id = 2
+ for x in range(0, repeat):
+ 	msg = "%s:%d %s command @reboot" % (hostname, msg_id, hosts)
+-#	print msg
+-	send_socket.sendto(msg, (PKC_MULTICAST_GROUP, PKC_MULTICAST_PORT))
++#	print(msg)
++	send_socket.sendto(msg.encode(), (PKC_MULTICAST_GROUP, PKC_MULTICAST_PORT))
+ 	time.sleep(delay)
+diff --git a/scripts-dist/pkc-recv b/scripts-dist/pkc-recv
+index 6acdf9f..5acdf67 100755
+--- a/scripts-dist/pkc-recv
++++ b/scripts-dist/pkc-recv
+@@ -17,4 +17,4 @@ mreq = struct.pack("4sl", socket.inet_aton(PKC_MULTICAST_GROUP_IP), socket.INADD
+ sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+ 
+ while True:
+-	print sock.recv(1024)
++	print(sock.recv(1024).decode())
+diff --git a/scripts-dist/startup b/scripts-dist/startup
+index b9b0d45..e985033 100755
+--- a/scripts-dist/startup
++++ b/scripts-dist/startup
+@@ -76,7 +76,7 @@ then
+ 		if [ "$curmount_dir" != "$media_dir" ]
+ 		then
+ 			echo "  umount $disk_device from $curmount_dir" >> $log_file
+-			sudo umount $disk_device
++			umount $disk_device
+ 		fi
+ 	fi
+ 
+@@ -85,7 +85,7 @@ then
+ 		FS_TYPE=`stat -f -c '%T' $media_dir`
+ 		if [ "$FS_TYPE" != "tmpfs" ]
+ 		then
+-			if sudo mount $disk_device $media_dir
++			if mount $disk_device $media_dir
+ 			then
+ 				echo "  mounted $disk_device on $media_dir" >> $log_file
+ 			else
+@@ -124,7 +124,7 @@ then
+ 		echo "  $archive_dir is already NFS mounted." >> $log_file
+ 	else
+ 		cp $install_dir/www/images/nfs-mounting.jpg /run/pikrellcam/mjpeg.jpg
+-		sudo mount $NFS_ARCHIVE &
++		mount $NFS_ARCHIVE &
+ 		for ((p = 0; p < 10; p++))
+ 		do
+ 			sleep 1
+diff --git a/src/Makefile b/src/Makefile
+index 0556994..dec7a8c 100644
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -1,8 +1,8 @@
+ 
+ 
+-EXECUTABLE = ../pikrellcam
++EXECUTABLE = build/pikrellcam
+ LIBKRELLM_ROOT := ../libkrellm
+-BUILDDIR = /tmp/build-pikrellcam
++BUILDDIR = build
+ 
+ MODULES   := glcd utils
+ 
+@@ -20,7 +20,7 @@ MMAL_LIB ?= -L/opt/vc/lib -lbcm_host -lvcos -lmmal -lmmal_core -lmmal_util \
+ 				-lmmal_vc_client
+ 
+ 
+-FLAGS = -O2 -Wall $(MMAL_INCLUDE) $(INCLUDES)
++FLAGS := $(CFLAGS) -O2 -Wall $(MMAL_INCLUDE) $(INCLUDES)
+ LIBS = $(MMAL_LIB) -lm -lpthread -lasound -lmp3lame
+ 
+ LOCAL_SRC = pikrellcam.c mmalcam.c motion.c event.c display.c config.c \
+diff --git a/src/config.c b/src/config.c
+index 9177b9a..237fc55 100644
+--- a/src/config.c
++++ b/src/config.c
+@@ -546,12 +546,12 @@ static Config  config[] =
+ 	  "# This must match where PiKrellCam is installed and it is checked by\n"
+ 	  "# the install-pikrellcam.sh script.  This should not need to be edited.\n"
+ 	  "#",
+-	"install_dir", "/home/pi/pikrellcam", TRUE, { .string = &pikrellcam.install_dir }, config_string_set },
++	"install_dir", "/srv/http/pikrellcam", TRUE, { .string = &pikrellcam.install_dir }, config_string_set },
+ 
+ 	{ "# If media_dir has no leading '/' it will be a sub directory in install_dir.\n"
+ 	  "# Otherwise it is a full pathname to the media directory.\n"
+-	  "# So the default media dir is /home/pi/pikrellcam/media.\n"
+-	  "# An alternate choice could be /home/pi/media if you set the full path.\n"
++	  "# So the default media dir is /srv/http/pikrellcam/media.\n"
++	  "# An alternate choice could be /srv/http/pikrellcam/media if you set the full path.\n"
+ 	  "# Even /tmp/media with /tmp a tmpfs can be an option for a setup that\n"
+ 	  "# will manage by hand or script the limited space available.\n"
+ 	  "# A file system may be mounted on the media dir in the startup script.\n"
+@@ -560,7 +560,7 @@ static Config  config[] =
+ 
+ 	{ "# If archive_dir has no leading '/' it will be a sub directory under media_dir.\n"
+ 	  "# Otherwise it is a full pathname to the archive directory.\n"
+-	  "# So the default archive dir is /home/pi/pikrellcam/media/archive.\n"
++	  "# So the default archive dir is /srv/http/pikrellcam/media/archive.\n"
+ 	  "# When media files are archived, they will be moved to sub directories:\n"
+ 	  "#     archive_dir/year/month/day/[videos|thumbs|stills]\n"
+ 	  "# A file system may be mounted on the archive dir in the startup script.\n"
+@@ -569,7 +569,7 @@ static Config  config[] =
+ 
+ 	{ "# If loop_dir has no leading '/' it will be a sub directory under media_dir.\n"
+ 	  "# Otherwise it is a full pathname to the loop directory.\n"
+-	  "# So the default archive dir is /home/pi/pikrellcam/media/loop.\n"
++	  "# So the default archive dir is /srv/http/pikrellcam/media/loop.\n"
+ 	  "# A file system may be mounted on the loop dir in the startup script.\n"
+ 	  "#",
+ 	"loop_dir", "loop", TRUE, { .string = &pikrellcam.loop_dir }, config_string_set },
+diff --git a/src/event.c b/src/event.c
+index 6cc7ebf..d27c7bc 100644
+--- a/src/event.c
++++ b/src/event.c
+@@ -773,8 +773,8 @@ log_lines(void)
+ 
+ 	if (pikrellcam.log_lines > 0)
+ 		{
+-		snprintf(buf, sizeof(buf), "%s/scripts-dist/_log-lines %d $G",
+-					pikrellcam.install_dir, pikrellcam.log_lines);
++		snprintf(buf, sizeof(buf), "/var/lib/pikrellcam/scripts-dist/_log-lines %d $G",
++					pikrellcam.log_lines);
+ 		exec_wait(buf, NULL); 
+ 		}
+ 	}
+diff --git a/src/pikrellcam.c b/src/pikrellcam.c
+index 7d5424e..5fd99ec 100644
+--- a/src/pikrellcam.c
++++ b/src/pikrellcam.c
+@@ -666,14 +666,14 @@ thumb_convert(void)
+ 	   )
+ 		{
+ 		motion_preview_area_fixup();
+-		fmt = "$I/scripts-dist/_thumb $F $G $A 150x%d $i $J $K $Y";
++		fmt = "/var/lib/pikrellcam/scripts-dist/_thumb $F $G $A 150x%d $i $J $K $Y";
+ 		if (   (vcb->state & VCB_STATE_LOOP_RECORD)
+ 		    && (s = strstr(pikrellcam.thumb_name, "0.th.jpg")) != NULL
+ 		   )
+ 			*s = 'm';
+ 		}
+ 	else
+-		fmt = "$I/scripts-dist/_thumb $F $G $A 150x%d 0 0 0 0";
++		fmt = "/var/lib/pikrellcam/scripts-dist/_thumb $F $G $A 150x%d 0 0 0 0";
+ 
+ 	snprintf(buf, sizeof(buf), fmt, h);
+ 	thumb_cmd = expand_command(buf, pikrellcam.preview_pathname);
+@@ -1580,7 +1580,7 @@ command_process(char *command_line)
+ 				else
+ 					fmt = "%s/scripts-dist/_archive-video %s %s $a $m $P $G";
+ 				snprintf(buf, sizeof(buf), fmt,
+-						pikrellcam.install_dir, arg1, arg2);
++						homedir, arg1, arg2);
+ 				exec_no_wait(buf, NULL, TRUE);
+ 				if (pikrellcam.check_archive_diskfree)
+ 					event_add("archive diskfree percent", pikrellcam.t_now + 3,
+@@ -1595,7 +1595,7 @@ command_process(char *command_line)
+ 				{
+ 				snprintf(buf, sizeof(buf),
+ 						"%s/scripts-dist/_archive-still %s %s $a $m $P $G",
+-						pikrellcam.install_dir, arg1, arg2);
++						homedir, arg1, arg2);
+ 				exec_no_wait(buf, NULL, TRUE);
+ 				if (pikrellcam.check_archive_diskfree)
+ 					event_add("archive diskfree percent", pikrellcam.t_now + 3,
+@@ -1610,7 +1610,7 @@ command_process(char *command_line)
+ 				{
+ 				snprintf(buf, sizeof(buf),
+ 						"%s/scripts-dist/_stills_thumbs_rescan %s $I $P $G",
+-						pikrellcam.install_dir, arg1);
++						homedir, arg1);
+ 				exec_no_wait(buf, NULL, TRUE);
+ 				}
+ 			else
+@@ -1628,7 +1628,7 @@ command_process(char *command_line)
+ 				{
+ 				snprintf(buf, sizeof(buf),
+ 							"%s/scripts-dist/_fix_thumbs $m $a $G %s",
+-							pikrellcam.install_dir, args);
++							homedir, args);
+ 				exec_no_wait(buf, NULL, TRUE);
+ 				}
+ 			break;
+@@ -1666,9 +1666,6 @@ command_process(char *command_line)
+ 			break;
+ 
+ 		case upgrade:
+-			snprintf(buf, sizeof(buf), "%s/scripts-dist/_upgrade $I $P $G $Z",
+-						pikrellcam.install_dir);
+-			exec_no_wait(buf, NULL, TRUE);
+ 			break;
+ 
+ 		case halt:
+@@ -1771,11 +1768,9 @@ check_modes(char *fname, int mode)
+ 
+ 		if (grp && grp->gr_name && pwd && pwd->pw_name)
+ 			{
+-			if (   strcmp(pwd->pw_name, pikrellcam.effective_user)
+-			    || strcmp(grp->gr_name, "www-data")
+-			   )
++			if (strcmp(grp->gr_name, "http"))
+ 				{
+-				snprintf(ch_cmd, sizeof(ch_cmd), "sudo chown %s.www-data %s",
++				snprintf(ch_cmd, sizeof(ch_cmd), "chown %s.http %s",
+ 						pikrellcam.effective_user, fname);
+ 				if (pikrellcam.verbose)
+ 					log_printf_no_timestamp("  check_modes() execing: %s\n", ch_cmd);
+@@ -1787,7 +1782,7 @@ check_modes(char *fname, int mode)
+ 
+ 			if ((st.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) != mode)
+ 				{
+-				snprintf(ch_cmd, sizeof(ch_cmd), "sudo chmod %o %s", mode, fname);
++				snprintf(ch_cmd, sizeof(ch_cmd), "chmod %o %s", mode, fname);
+ 				if (pikrellcam.verbose)
+ 					log_printf_no_timestamp("  check_modes() (%o) execing: %s\n",
+ 							st.st_mode, ch_cmd);
+@@ -1850,8 +1845,8 @@ make_dir(char *dir)
+ 	if ((dir_exists = isdir(dir)) == FALSE)
+ 		{
+ 		if (pikrellcam.verbose)
+-			log_printf_no_timestamp("  make_dir() execing sudo mkdir -p %s\n", dir);
+-		exec_wait("sudo mkdir -p $F", dir);
++			log_printf_no_timestamp("  make_dir() execing mkdir -p %s\n", dir);
++		exec_wait("mkdir -p $F", dir);
+ 		if ((dir_exists = isdir(dir)) == FALSE)
+ 			{
+ 			log_printf_no_timestamp("make_dir(%s) failed. %m\n", dir);
+@@ -1867,8 +1862,6 @@ make_dir(char *dir)
+ 		}
+ 	else if (pikrellcam.verbose)
+ 		log_printf_no_timestamp("  make_dir(%s) dir already exists.\n", dir);
+-	if (dir_exists)
+-		check_modes(dir, 0775);
+ 	return dir_exists;
+ 	}
+ 
+@@ -1963,7 +1956,7 @@ main(int argc, char *argv[])
+ 		if (user_gid > 0)
+ 			setgid(user_gid);
+ 		setuid(user_uid);
+-		snprintf(buf, sizeof(buf), "HOME=%s", homedir ? homedir : "/home/pi");
++		snprintf(buf, sizeof(buf), "HOME=%s", homedir ? homedir : "/var/lib/pikrellcam");
+ 		putenv(buf);
+ 		log_printf_no_timestamp("== Dropped root priviledges-continuing as normal user ==\n");
+ 		log_start(FALSE, FALSE, TRUE);
+@@ -1996,13 +1989,13 @@ main(int argc, char *argv[])
+ 	if (!homedir)
+ 		homedir = getpwuid(geteuid())->pw_dir;
+ 	if (!homedir)
+-		homedir = "/home/pi";
++		homedir = "/var/lib/pikrellcam";
+ 
+ 	user = strrchr(homedir, '/');
+ 	if (user)
+ 		++user;
+ 
+-	pikrellcam.effective_user = strdup(user ? user : "pi");
++	pikrellcam.effective_user = strdup(user ? user : "pikrellcam");
+ 
+ 	if (!motion_regions_config_load(pikrellcam.motion_regions_config_file, FALSE))
+ 		motion_regions_config_save(pikrellcam.motion_regions_config_file, FALSE);
+@@ -2071,13 +2064,12 @@ main(int argc, char *argv[])
+ 		}
+ 
+ 	snprintf(buf, sizeof(buf), "%s/%s", pikrellcam.install_dir, "www");
+-	check_modes(buf, 0775);
+ 
+ 	asprintf(&pikrellcam.command_fifo, "%s/www/FIFO", pikrellcam.install_dir);
+ 	asprintf(&pikrellcam.motion_detects_fifo, "%s/www/motion_detects_FIFO", pikrellcam.install_dir);
+ 	asprintf(&pikrellcam.audio_fifo, "%s/www/audio_FIFO", pikrellcam.install_dir);
+-	asprintf(&pikrellcam.scripts_dir, "%s/scripts", pikrellcam.install_dir);
+-	asprintf(&pikrellcam.scripts_dist_dir, "%s/scripts-dist", pikrellcam.install_dir);
++	asprintf(&pikrellcam.scripts_dir, "%s/scripts", homedir);
++	asprintf(&pikrellcam.scripts_dist_dir, "%s/scripts-dist", homedir);
+ 	asprintf(&pikrellcam.mjpeg_filename, "%s/mjpeg.jpg", pikrellcam.tmpfs_dir);
+ 	asprintf(&pikrellcam.state_filename, "%s/state", pikrellcam.tmpfs_dir);
+ 
+@@ -2116,7 +2108,7 @@ main(int argc, char *argv[])
+ 		}
+ 
+ 	snprintf(buf, sizeof(buf), "%s/scripts-dist/_init $I $a $m $M $P $G %s %s",
+-		pikrellcam.install_dir,
++		homedir,
+ 		(pikrellcam.have_servos) ? "servos_on" : "servos_off",
+ 		pikrellcam.loop_dir);
+ 	exec_wait(buf, NULL);
+diff --git a/src/pikrellcam.h b/src/pikrellcam.h
+index d915d2a..a64bc2f 100644
+--- a/src/pikrellcam.h
++++ b/src/pikrellcam.h
+@@ -84,7 +84,7 @@ extern int h264_conn_status;
+ */
+ #define	EVENT_LOOP_FREQUENCY	10
+ 
+-#define PIKRELLCAM_CONFIG_DIR					".pikrellcam"
++#define PIKRELLCAM_CONFIG_DIR					"config"
+ #define PIKRELLCAM_CONFIG						"pikrellcam.conf"
+ #define PIKRELLCAM_MOTION_REGIONS_CONFIG		"motion-regions.conf"
+ #define PIKRELLCAM_MOTION_REGIONS_CUSTOM_CONFIG	"motion-regions-%s.conf"
+diff --git a/www/config.php b/www/config.php
+index 579eab7..c30dba6 100644
+--- a/www/config.php
++++ b/www/config.php
+@@ -20,10 +20,10 @@
+ //
+ 	define("LOG_FILE", "/tmp/pikrellcam.log");
+ 	define("MJPEG_FILE", "/run/pikrellcam/mjpeg.jpg");
+-	define("PIKRELLCAM", "/home/pi/pikrellcam/pikrellcam");
+-	define("FIFO_FILE", "/home/pi/pikrellcam/www/FIFO");
++	define("PIKRELLCAM", "/usr/bin/pikrellcam");
++	define("FIFO_FILE", "/srv/http/pikrellcam/www/FIFO");
+ 
+ 	define("SERVOS_ENABLE", "servos_off");
+ 
+-	define("VERSION", "3.0.2");
++	define("VERSION", "4.3.1");
+ ?>
+diff --git a/www/help.php b/www/help.php
+index ebef4e9..3b677b7 100644
+--- a/www/help.php
++++ b/www/help.php
+@@ -251,12 +251,9 @@ Go to the PiKrellCam web page in your browser (omit the port number if it was le
+ 
+ <span style='font-size: 1.5em; font-weight:650'>Upgrades</span><hr>
+ <div class='indent0'>
+-	Expand the front page
+-	<span style='font-weight:700'>System</span> panel and click the
+-	<span <span class='btn-control'>Upgrade</span> button.<br>
+ 	After an upgrade to a new version PiKrellCam should be stopped
+-	and restarted from the
+-	<span style='font-weight:700'>System</span> panel and the web pages
++	and restarted from 
++	<span style='font-weight:700'>systemd</span> panel and the web pages
+ 	should be reloaded to pick up any possible web page changes.
+ </div>
+ 
+@@ -1570,8 +1567,8 @@ that pikrellcam uses to store and view media files and the defaults are:
+ <pre>
+ pi@rpi2: ~$ ls -lt pikrellcam/www
+ total 116
+-lrwxrwxrwx 1 pi       www-data    33 Nov 16 09:07 archive -> /home/pi/pikrellcam/media/archive/
+-lrwxrwxrwx 1 pi       www-data    25 Nov 16 09:07 media -> /home/pi/pikrellcam/media/
++lrwxrwxrwx 1 pikrellcam   http    33 Nov 16 09:07 archive -> /srv/http/pikrellcam/media/archive/
++lrwxrwxrwx 1 pikrellcam   http    25 Nov 16 09:07 media -> /srv/http/pikrellcam/media/
+ </pre>
+ The media link is the main media directory and its media file sub directories which contain a flat
+ list of files where media files for all days are initially stored.
+@@ -1708,7 +1705,7 @@ $ sudo systemctl restart nfs-kernel-server
+ 	For this example I will mount onto the default pikrellcam archive location
+ 	so I don't have to edit archive_dir in pikrellcam.conf.  I leave it
+ 	at its default which assumes
+-	<nobr>/home/pi/pikrellcam/media/archive</nobr>
++	<nobr>/srv/http/pikrellcam/media/archive</nobr>
+ 	since there is no leading /:<br>
+ 		&nbsp &nbsp <span style='font-weight:700'>archive_dir archive</span><br>
+ 	</li>
+@@ -1718,13 +1715,13 @@ $ sudo systemctl restart nfs-kernel-server
+ 	directory onto the pikrellcam archive directory. Use the archive_dir
+ 	full path implied by the archive_dir value above:
+ <pre>
+-gkrellm6:/home/bill/media-archive /home/pi/pikrellcam/media/archive nfs users,noauto 0 0
++gkrellm6:/home/bill/media-archive /srv/http/pikrellcam/media/archive nfs users,noauto 0 0
+ </pre>
+ 	</li>
+ 	<li> NFS mount the gkrellm6 media-archive directory by hand or by script.
+ 	The mount command will use the /etc/fstab line to mount the gkrellm6
+ 	<nobr>/home/bill/media-archive</nobr> directory on the pikrellcam
+-	<nobr>/home/pi/pikrellcam/media/archive</nobr> directory.
++	<nobr>/srv/http/pikrellcam/media/archive</nobr> directory.
+ 	After mounting, running df will show the NFS mount and reloading
+ 	web pages will show "NFS Archive Calendar" buttons.
+ <pre>
+@@ -1735,8 +1732,8 @@ $ sudo mount gkrellm6:/home/bill/media-archive
+ 	to mount the NFS archive directory when pikrellcam starts.
+ 	Pikrellcam installs prior to V 4.1.5 did not have a NFS section in that
+ 	startup script so you may have to copy the new
+-	<nobr>~/pikrellcam/scripts-dist/startup</nobr> over your existing
+-	<nobr>~/pikrellcam/scripts/startup.</nobr> and reconfigure
++	<nobr>/var/lib/pikrellcam/scripts-dist/startup</nobr> over your existing
++	<nobr>/var/lib/pikrellcam/scripts/startup.</nobr> and reconfigure
+ 	MOUNT_DISK if you had previously done that.<br>
+ 	Otherwise, configuration for NFS mounting must be as follows:
+ 	<ul>
+@@ -2531,7 +2528,7 @@ an &lt;off&gt; tag is written to the motion_detects_FIFO so the user app can
+ know the motion_detects_fifo_enable has been turned off.
+ <p>
+ Read the example script
+-<span style='font-weight:700'>~/pikrellcam/scripts-dist/example-motion-detects-fifo</span>
++<span style='font-weight:700'>/var/lib/pikrellcam/scripts-dist/example-motion-detects-fifo</span>
+ for more information. If this script is run by hand from a terminal,
+ a stream of all motion detects is printed.
+ <p>
+@@ -2539,7 +2536,7 @@ To test the example script on a Pi running pikrellcam, open a terminal
+ (SSH terminal if the Pi is headless) and run the example script:<br>
+ 
+ <pre>
+-    $ ~/pikrellcam/scripts-dist/example-motion-detects-fifo
++    $ /var/lib/pikrellcam/scripts-dist/example-motion-detects-fifo
+ # The script enables motion_detects_FIFO and motion detects are printed here.
+ # Terminate the script with ^C or send an off command in another termial:
+ #    $ echo "motion_detects_fifo_enable off" > ~/pikrellcam/www/FIFO

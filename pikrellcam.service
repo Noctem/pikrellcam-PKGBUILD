@@ -1,0 +1,9 @@
+[Unit]
+Description=motion vector detection program with OSD web interface
+
+[Service]
+ExecStart=/usr/bin/pikrellcam
+User=pikrellcam
+
+[Install]
+WantedBy=multi-user.target
