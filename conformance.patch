@@ -911,9 +911,22 @@ index d915d2a..a64bc2f 100644
  #define PIKRELLCAM_MOTION_REGIONS_CONFIG		"motion-regions.conf"
  #define PIKRELLCAM_MOTION_REGIONS_CUSTOM_CONFIG	"motion-regions-%s.conf"
 diff --git a/www/config.php b/www/config.php
-index 579eab7..c30dba6 100644
+index 579eab7..68abc61 100644
 --- a/www/config.php
 +++ b/www/config.php
+@@ -1,10 +1,10 @@
+ <?php
+ 	define("PROGRAM", "PiKrellCam");
+ 	define("HOST", php_uname("n"));
+-  	define("TITLE_STRING", PROGRAM . "@" . HOST);
++	define("TITLE_STRING", PROGRAM . "@" . HOST);
+ 
+ // The 'media' directory in these defines is a link to the media_dir
+-// which is configured in ~/.pikrellcam/pikrellcam.conf and the link is
++// which is configured in /var/lib/pikrellcam/config/pikrellcam.conf and the link is
+ // automatically altered by the startup script if media_dir is changed.
+ // The videos, stills and timelapse subdirs are fixed to match PiKrellCam.
+ // Do not change these here.
 @@ -20,10 +20,10 @@
  //
  	define("LOG_FILE", "/tmp/pikrellcam.log");
@@ -1012,3 +1025,19 @@ index ebef4e9..3b677b7 100644
  # The script enables motion_detects_FIFO and motion detects are printed here.
  # Terminate the script with ^C or send an off command in another termial:
  #    $ echo "motion_detects_fifo_enable off" > ~/pikrellcam/www/FIFO
+diff --git a/www/media-archive.php b/www/media-archive.php
+index a8c720a..8ec699b 100644
+--- a/www/media-archive.php
++++ b/www/media-archive.php
+@@ -904,10 +904,7 @@ function restart_page($selected)
+ 		}
+ 	else
+ 		$dir = exec("readlink -f $media_dir"). "/$media_type";
+-	$e_user = "pi";
+-	if (file_exists('user.php'))
+-		include 'user.php';
+-	$dir = str_replace("/home/$e_user/", "~/", $dir);
++	$dir = str_replace("/var/lib/pikrellcam/", "~/", $dir);
+ 
+ 	echo "<span style=\"float: top; margin-left:20px; font-size: 0.96em; font-weight:550; color: $default_text_color\">
+ 		$dir &nbsp;&nbsp;${total}B &nbsp Free:&thinsp;${free}B&thinsp;($free_percent %)</span>";

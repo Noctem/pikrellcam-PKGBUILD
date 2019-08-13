@@ -27,7 +27,7 @@ source=('git+https://github.com/billw2/pikrellcam'
         'pikrellcam.tmp'
         'user.php')
 sha256sums=('SKIP'
-            'cb7894d69c822d3d985f3aa2e9be9b43cd6a4721b27c4735992d7398fe367726'
+            '954b37fd5e6302875a087e2d54f01e513c755aa6c24d26be8b6dc8d6d72d6509'
             'e91161b96d890b37f5970c4acfd99f1f62991d1cb1c018e1f4c267ce185ef4b4'
             'c1ec8f8d25b7ee2a1770f9ded6cf7089454d96c505e76b25c285125a4c536c3a'
             'aa04ff7e986749beae3a7ffbc0c03a449fec9ee6e40c4e53c57e8b263a2629d6'
