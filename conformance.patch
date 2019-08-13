@@ -41,7 +41,7 @@ index 62fd008..aa893d2 100755
  	PREFIX=${BASE:0:3}
  	DIR=`dirname $1`
 diff --git a/scripts-dist/_init b/scripts-dist/_init
-index cc87237..188aaaa 100755
+index cc87237..7bc5b01 100755
 --- a/scripts-dist/_init
 +++ b/scripts-dist/_init
 @@ -22,9 +22,6 @@ LOG_FILE=$6
@@ -54,12 +54,11 @@ index cc87237..188aaaa 100755
  if [ "$LOG_FILE" == "" ]
  then
  	LOG_FILE = /dev/null
-@@ -35,26 +32,12 @@ cd $INSTALL_DIR
+@@ -35,24 +32,21 @@ cd $INSTALL_DIR
  # note there is a tab before 'define' in the CMD assignments.
  #
  WWW_CONFIG=$INSTALL_DIR/www/config.php
 -PIKRELLCAM=$INSTALL_DIR/pikrellcam
-+PIKRELLCAM=/usr/bin/pikrellcam
  ARCHIVE_LINK=www/archive
  LOOP_LINK=www/loop
  MEDIA_LINK=www/media
@@ -67,22 +66,75 @@ index cc87237..188aaaa 100755
 -MJPEG_LINK=www/mjpeg.jpg
  VERSION=`pikrellcam --version`
  
--if [ ! -h $STATE_LINK ]
--then
--	echo "  making $STATE_LINK link to $STATE_FILE" >> $LOG_FILE
--	ln -s $STATE_FILE $STATE_LINK
--fi
--
--if [ ! -h $MJPEG_LINK ]
--then
--	echo "  making $MJPEG_LINK link to $MJPEG_FILE" >> $LOG_FILE
--	ln -s $MJPEG_FILE $MJPEG_LINK
--fi
--
- if [ ! -h $MEDIA_LINK ]
+ if [ ! -h $STATE_LINK ]
  then
- 	echo "  making $MEDIA_LINK link to $MEDIA_DIR" >> $LOG_FILE
-@@ -147,23 +130,3 @@ then
+ 	echo "  making $STATE_LINK link to $STATE_FILE" >> $LOG_FILE
+-	ln -s $STATE_FILE $STATE_LINK
++	ln -sf $STATE_FILE $STATE_LINK
+ fi
+ 
+ if [ ! -h $MJPEG_LINK ]
+ then
+ 	echo "  making $MJPEG_LINK link to $MJPEG_FILE" >> $LOG_FILE
+-	ln -s $MJPEG_FILE $MJPEG_LINK
++	ln -sf $MJPEG_FILE $MJPEG_LINK
+ fi
+ 
+ if [ ! -h $MEDIA_LINK ]
+@@ -64,8 +58,7 @@ else
+ 	if [ "$CURRENT_MEDIA" != "$MEDIA_DIR" ]
+ 	then
+ 		echo "  replacing $MEDIA_LINK link from $CURRENT_MEDIA to $MEDIA_DIR" >> $LOG_FILE
+-		rm $MEDIA_LINK
+-		ln -s $MEDIA_DIR $MEDIA_LINK
++		ln -sfT $MEDIA_DIR $MEDIA_LINK
+ 	else
+ 		echo "  $MEDIA_LINK link is already set to $MEDIA_DIR" >> $LOG_FILE
+ 	fi
+@@ -74,14 +67,13 @@ fi
+ if [ ! -h $ARCHIVE_LINK ]
+ then
+ 	echo "  making $ARCHIVE_LINK link to $ARCHIVE_DIR" >> $LOG_FILE
+-	ln -s $ARCHIVE_DIR $ARCHIVE_LINK
++	ln -sf $ARCHIVE_DIR $ARCHIVE_LINK
+ else
+ 	CURRENT_ARCHIVE=`realpath $ARCHIVE_LINK`
+ 	if [ "$CURRENT_ARCHIVE" != "$ARCHIVE_DIR" ]
+ 	then
+ 		echo "  replacing $ARCHIVE_LINK link from $CURRENT_ARCHIVE to $ARCHIVE_DIR" >> $LOG_FILE
+-		rm $ARCHIVE_LINK
+-		ln -s $ARCHIVE_DIR $ARCHIVE_LINK
++		ln -sfT $ARCHIVE_DIR $ARCHIVE_LINK
+ 	else
+ 		echo "  $ARCHIVE_LINK link is already set to $ARCHIVE_DIR" >> $LOG_FILE
+ 	fi
+@@ -96,8 +88,7 @@ else
+ 	if [ "$CURRENT_LOOP" != "$LOOP_DIR" ]
+ 	then
+ 		echo "  replacing $LOOP_LINK link from $CURRENT_LOOP to $LOOP_DIR" >> $LOG_FILE
+-		rm $LOOP_LINK
+-		ln -s $LOOP_DIR $LOOP_LINK
++		ln -sfT $LOOP_DIR $LOOP_LINK
+ 	else
+ 		echo "  $LOOP_LINK link is already set to $LOOP_DIR" >> $LOG_FILE
+ 	fi
+@@ -130,15 +121,6 @@ else
+ 	echo "  $WWW_CONFIG: FIFO_FILE not changed." >> $LOG_FILE
+ fi
+ 
+-if ! grep -q $PIKRELLCAM $WWW_CONFIG
+-then
+-	CMD="/PIKRELLCAM/c\	define\(\"PIKRELLCAM\", \"$PIKRELLCAM\"\);"
+-	sed -i "$CMD" $WWW_CONFIG
+-	echo "  $WWW_CONFIG: PIKRELLCAM updated to: $PIKRELLCAM" >> $LOG_FILE
+-else
+-	echo "  $WWW_CONFIG: PIKRELLCAM not changed." >> $LOG_FILE
+-fi
+-
+ if ! grep -q $SERVOS_ENABLE $WWW_CONFIG
+ then
+ 	CMD="/SERVOS_ENABLE/c\	define\(\"SERVOS_ENABLE\", \"$SERVOS_ENABLE\"\);"
+@@ -147,23 +129,3 @@ then
  else
  	echo "  $WWW_CONFIG: SERVOS_ENABLE not changed." >> $LOG_FILE
  fi
@@ -641,10 +693,18 @@ index 6cc7ebf..d27c7bc 100644
  		}
  	}
 diff --git a/src/pikrellcam.c b/src/pikrellcam.c
-index 7d5424e..5fd99ec 100644
+index 7d5424e..008574e 100644
 --- a/src/pikrellcam.c
 +++ b/src/pikrellcam.c
-@@ -666,14 +666,14 @@ thumb_convert(void)
+@@ -22,6 +22,7 @@
+ #include <signal.h>
+ #include <locale.h>
+ #include <linux/magic.h>
++#include <sys/prctl.h>
+ 
+ 
+ PiKrellCam	pikrellcam;
+@@ -666,14 +667,14 @@ thumb_convert(void)
  	   )
  		{
  		motion_preview_area_fixup();
@@ -661,7 +721,7 @@ index 7d5424e..5fd99ec 100644
  
  	snprintf(buf, sizeof(buf), fmt, h);
  	thumb_cmd = expand_command(buf, pikrellcam.preview_pathname);
-@@ -1580,7 +1580,7 @@ command_process(char *command_line)
+@@ -1580,7 +1581,7 @@ command_process(char *command_line)
  				else
  					fmt = "%s/scripts-dist/_archive-video %s %s $a $m $P $G";
  				snprintf(buf, sizeof(buf), fmt,
@@ -670,7 +730,7 @@ index 7d5424e..5fd99ec 100644
  				exec_no_wait(buf, NULL, TRUE);
  				if (pikrellcam.check_archive_diskfree)
  					event_add("archive diskfree percent", pikrellcam.t_now + 3,
-@@ -1595,7 +1595,7 @@ command_process(char *command_line)
+@@ -1595,7 +1596,7 @@ command_process(char *command_line)
  				{
  				snprintf(buf, sizeof(buf),
  						"%s/scripts-dist/_archive-still %s %s $a $m $P $G",
@@ -679,7 +739,7 @@ index 7d5424e..5fd99ec 100644
  				exec_no_wait(buf, NULL, TRUE);
  				if (pikrellcam.check_archive_diskfree)
  					event_add("archive diskfree percent", pikrellcam.t_now + 3,
-@@ -1610,7 +1610,7 @@ command_process(char *command_line)
+@@ -1610,7 +1611,7 @@ command_process(char *command_line)
  				{
  				snprintf(buf, sizeof(buf),
  						"%s/scripts-dist/_stills_thumbs_rescan %s $I $P $G",
@@ -688,7 +748,7 @@ index 7d5424e..5fd99ec 100644
  				exec_no_wait(buf, NULL, TRUE);
  				}
  			else
-@@ -1628,7 +1628,7 @@ command_process(char *command_line)
+@@ -1628,7 +1629,7 @@ command_process(char *command_line)
  				{
  				snprintf(buf, sizeof(buf),
  							"%s/scripts-dist/_fix_thumbs $m $a $G %s",
@@ -697,7 +757,7 @@ index 7d5424e..5fd99ec 100644
  				exec_no_wait(buf, NULL, TRUE);
  				}
  			break;
-@@ -1666,9 +1666,6 @@ command_process(char *command_line)
+@@ -1666,9 +1667,6 @@ command_process(char *command_line)
  			break;
  
  		case upgrade:
@@ -707,7 +767,7 @@ index 7d5424e..5fd99ec 100644
  			break;
  
  		case halt:
-@@ -1771,11 +1768,9 @@ check_modes(char *fname, int mode)
+@@ -1771,11 +1769,9 @@ check_modes(char *fname, int mode)
  
  		if (grp && grp->gr_name && pwd && pwd->pw_name)
  			{
@@ -721,7 +781,7 @@ index 7d5424e..5fd99ec 100644
  						pikrellcam.effective_user, fname);
  				if (pikrellcam.verbose)
  					log_printf_no_timestamp("  check_modes() execing: %s\n", ch_cmd);
-@@ -1787,7 +1782,7 @@ check_modes(char *fname, int mode)
+@@ -1787,7 +1783,7 @@ check_modes(char *fname, int mode)
  
  			if ((st.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) != mode)
  				{
@@ -730,7 +790,7 @@ index 7d5424e..5fd99ec 100644
  				if (pikrellcam.verbose)
  					log_printf_no_timestamp("  check_modes() (%o) execing: %s\n",
  							st.st_mode, ch_cmd);
-@@ -1850,8 +1845,8 @@ make_dir(char *dir)
+@@ -1850,8 +1846,8 @@ make_dir(char *dir)
  	if ((dir_exists = isdir(dir)) == FALSE)
  		{
  		if (pikrellcam.verbose)
@@ -741,7 +801,7 @@ index 7d5424e..5fd99ec 100644
  		if ((dir_exists = isdir(dir)) == FALSE)
  			{
  			log_printf_no_timestamp("make_dir(%s) failed. %m\n", dir);
-@@ -1867,8 +1862,6 @@ make_dir(char *dir)
+@@ -1867,8 +1863,6 @@ make_dir(char *dir)
  		}
  	else if (pikrellcam.verbose)
  		log_printf_no_timestamp("  make_dir(%s) dir already exists.\n", dir);
@@ -750,19 +810,56 @@ index 7d5424e..5fd99ec 100644
  	return dir_exists;
  	}
  
-@@ -1963,7 +1956,7 @@ main(int argc, char *argv[])
- 		if (user_gid > 0)
- 			setgid(user_gid);
- 		setuid(user_uid);
+@@ -1953,37 +1947,7 @@ main(int argc, char *argv[])
+ 		}
+ 	pikrellcam.pi_model = pi_model();
+ 
+-	/* If need to mmap() gpios for servos, restart a sudo pikrellcam which can
+-	|  mmap() /dev/mem and then drop priviledes back to orig user/group
+-	*/
+-	if (getuid() == 0)	/* root, so mmap(), drop privileges and continue */
+-		{
+-		log_start(FALSE, TRUE, FALSE);
+-		servo_init();
+-		if (user_gid > 0)
+-			setgid(user_gid);
+-		setuid(user_uid);
 -		snprintf(buf, sizeof(buf), "HOME=%s", homedir ? homedir : "/home/pi");
-+		snprintf(buf, sizeof(buf), "HOME=%s", homedir ? homedir : "/var/lib/pikrellcam");
- 		putenv(buf);
- 		log_printf_no_timestamp("== Dropped root priviledges-continuing as normal user ==\n");
- 		log_start(FALSE, FALSE, TRUE);
-@@ -1996,13 +1989,13 @@ main(int argc, char *argv[])
+-		putenv(buf);
+-		log_printf_no_timestamp("== Dropped root priviledges-continuing as normal user ==\n");
+-		log_start(FALSE, FALSE, TRUE);
+-		}
+-	else if (pikrellcam.have_servos && !pikrellcam.servo_use_servoblaster)
+-		{
+-		/* Need to restart pikrellcam as root so can mmap() PWMs for servos.
+-		*/
+-		log_start(TRUE, FALSE, FALSE);
+-		log_printf_no_timestamp("========= Restarting as root to mmap() servos ==========\n");
+-		homedir = getpwuid(geteuid())->pw_dir;
+-		i = snprintf(buf, sizeof(buf), "sudo -P %s -user%d -group%d -home%s ",
+-				*argv++, (int) getuid(), (int) getgid(), homedir);
+-		while (--argc && i < sizeof(buf) - 64 - strlen(*argv))
+-			i += sprintf(buf + i, "%s ", *argv++);
+-
+-		exec_wait(buf, NULL);
+-		exit(0);
+-		}
+-	else if (pikrellcam.servo_use_servoblaster)
++	if (pikrellcam.have_servos)
+ 		{
+ 		log_start(TRUE, TRUE,FALSE);
+ 		servo_init();
+@@ -1992,17 +1956,18 @@ main(int argc, char *argv[])
+ 	else
+ 		log_start(TRUE, TRUE, TRUE);
+ 
++	if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0) == -1)
++		printf("Failed to drop capabilities.");
++
+ 	bcm_host_init();
  	if (!homedir)
- 		homedir = getpwuid(geteuid())->pw_dir;
- 	if (!homedir)
+-		homedir = getpwuid(geteuid())->pw_dir;
+-	if (!homedir)
 -		homedir = "/home/pi";
 +		homedir = "/var/lib/pikrellcam";
  
@@ -775,7 +872,7 @@ index 7d5424e..5fd99ec 100644
  
  	if (!motion_regions_config_load(pikrellcam.motion_regions_config_file, FALSE))
  		motion_regions_config_save(pikrellcam.motion_regions_config_file, FALSE);
-@@ -2071,13 +2064,12 @@ main(int argc, char *argv[])
+@@ -2071,13 +2036,12 @@ main(int argc, char *argv[])
  		}
  
  	snprintf(buf, sizeof(buf), "%s/%s", pikrellcam.install_dir, "www");
@@ -791,7 +888,7 @@ index 7d5424e..5fd99ec 100644
  	asprintf(&pikrellcam.mjpeg_filename, "%s/mjpeg.jpg", pikrellcam.tmpfs_dir);
  	asprintf(&pikrellcam.state_filename, "%s/state", pikrellcam.tmpfs_dir);
  
-@@ -2116,7 +2108,7 @@ main(int argc, char *argv[])
+@@ -2116,7 +2080,7 @@ main(int argc, char *argv[])
  		}
  
  	snprintf(buf, sizeof(buf), "%s/scripts-dist/_init $I $a $m $M $P $G %s %s",

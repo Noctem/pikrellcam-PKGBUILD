@@ -27,10 +27,10 @@ source=('git+https://github.com/billw2/pikrellcam'
         'pikrellcam.tmp'
         'user.php')
 sha256sums=('SKIP'
-            'b039fb5112757301d05d3de4bb6ae48c8fd219aa76855cfad4d220f628c9ae32'
+            'cb7894d69c822d3d985f3aa2e9be9b43cd6a4721b27c4735992d7398fe367726'
             'e91161b96d890b37f5970c4acfd99f1f62991d1cb1c018e1f4c267ce185ef4b4'
             'c1ec8f8d25b7ee2a1770f9ded6cf7089454d96c505e76b25c285125a4c536c3a'
-            '48820d72529a325a0ba2b2091514024eaeeaa27538886a9e6817c4c7b54acd0f'
+            'aa04ff7e986749beae3a7ffbc0c03a449fec9ee6e40c4e53c57e8b263a2629d6'
             'e92ef70d2b1b697fe7add6abb727ec692e341589bfe5d3173b4b855328e37495'
             '24f7bf8f483c130b4b9c26e27566a22901cfe8707ca705343bd871a502fbdaaa'
             '4307747339b96bdd1b41e50abb4b60c4212d4c6a1216cca740cb83605d932ccf')
@@ -69,7 +69,8 @@ package(){
   install -dm755 "${_dst}/config"
 
   # create web directories and symlinks
-  install -dm755 -g http "$_srv"/{www,www/images,www/js-css}
+  install -dm775 "${_srv}/www"
+  install -dm755 -g http "$_srv"/{www/images,www/js-css}
   install -dm775 -g http "$_srv"/{media,media/archive,media/loop,media/stills,media/thumbs,media/videos}
   ln -s ../media "$_srv"/www/media
   ln -s ../media/archive "$_srv"/www/archive

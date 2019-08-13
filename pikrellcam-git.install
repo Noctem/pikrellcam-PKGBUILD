@@ -1,4 +1,6 @@
 post_install() {
+	chgrp pikrellcam /srv/http/pikrellcam/www
+	chown pikrellcam /srv/http/pikrellcam/www/config.php
 	chown pikrellcam /var/lib/{pikrellcam,pikrellcam/config,pikrellcam/scripts}
 	chown -R pikrellcam:http /srv/http/pikrellcam/media
 
@@ -10,12 +12,32 @@ post_install() {
 		[[ ! -f "../scripts/${file}" ]] && \
 			[[ "$file" != Readme ]] && \
 			[[ "$file" != _* ]] && \
+			[[ "$file" != pkc_* ]] && \
 			install -Dm 755 -o pikrellcam "$file" ../scripts/
 	done
 
 	fgrep -q sites-enabled /etc/nginx/nginx.conf || \
 		echo "add: 'include sites-enabled/*;' to the end of the http block in nginx.conf"
 	echo "The default HTTP username and password are 'pikrellcam', modify /srv/http/www/.htpassword to change that."
+}
+
+pre_upgrade() {
+	cd /var/lib/pikrellcam/scripts
+	for file in *; do
+		# remove unmodified scripts
+		[[ -f "../scripts-dist/${file}" ]] && cmp --silent "$file" "../scripts-dist/${file}" && rm "$file"
+	done
+}
+
+post_upgrade() {
+	cd /var/lib/pikrellcam/scripts-dist
+	for file in *; do
+		[[ ! -f "../scripts/${file}" ]] && \
+			[[ "$file" != Readme ]] && \
+			[[ "$file" != _* ]] && \
+			[[ "$file" != pkc_* ]] && \
+			install -Dm 755 -o pikrellcam "$file" ../scripts/
+	done
 }
 
 pre_remove() {
