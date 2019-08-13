@@ -9,11 +9,12 @@ post_install() {
 
 	cd /var/lib/pikrellcam/scripts-dist
 	for file in *; do
-		[[ ! -f "../scripts/${file}" ]] && \
-			[[ "$file" != Readme ]] && \
-			[[ "$file" != _* ]] && \
-			[[ "$file" != pkc_* ]] && \
+		if [[ ! -f "../scripts/${file}" ]] && \
+				[[ "$file" != Readme ]] && \
+				[[ "$file" != _* ]] && \
+				[[ "$file" != pkc_* ]]; then
 			install -Dm 755 -o pikrellcam "$file" ../scripts/
+		fi
 	done
 
 	fgrep -q sites-enabled /etc/nginx/nginx.conf || \
@@ -25,18 +26,21 @@ pre_upgrade() {
 	cd /var/lib/pikrellcam/scripts
 	for file in *; do
 		# remove unmodified scripts
-		[[ -f "../scripts-dist/${file}" ]] && cmp --silent "$file" "../scripts-dist/${file}" && rm "$file"
+		if [[ -f "../scripts-dist/${file}" ]] && cmp --silent "$file" "../scripts-dist/${file}"; then
+			rm "$file"
+		fi
 	done
 }
 
 post_upgrade() {
 	cd /var/lib/pikrellcam/scripts-dist
 	for file in *; do
-		[[ ! -f "../scripts/${file}" ]] && \
-			[[ "$file" != Readme ]] && \
-			[[ "$file" != _* ]] && \
-			[[ "$file" != pkc_* ]] && \
+		if [[ ! -f "../scripts/${file}" ]] && \
+				[[ "$file" != Readme ]] && \
+				[[ "$file" != _* ]] && \
+				[[ "$file" != pkc_* ]]; then
 			install -Dm 755 -o pikrellcam "$file" ../scripts/
+		fi
 	done
 }
 
@@ -44,10 +48,12 @@ pre_remove() {
 	cd /var/lib/pikrellcam/scripts
 	for file in *; do
 		# remove unmodified scripts
-		[[ -f "../scripts-dist/${file}" ]] && cmp --silent "$file" "../scripts-dist/${file}" && rm "$file"
+		if [[ -f "../scripts-dist/${file}" ]] && cmp --silent "$file" "../scripts-dist/${file}"; then
+			rm "$file"
+		fi
 	done
 }
 
 post_remove() {
-	[[ -d /var/lib/pikrellcam ]] && echo "Config files and/or scripts remain in /var/lib/pikrellcam"
+	[[ ! -d /var/lib/pikrellcam ]] || echo "Config files and/or scripts remain in /var/lib/pikrellcam"
 }
