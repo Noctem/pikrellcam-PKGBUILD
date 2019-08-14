@@ -1,4 +1,6 @@
 post_install() {
+	systemd-sysusers /usr/lib/sysusers.d/pikrellcam.con
+
 	chgrp pikrellcam /srv/http/pikrellcam/www
 	chown pikrellcam /srv/http/pikrellcam/www/config.php
 	chown pikrellcam /var/lib/{pikrellcam,pikrellcam/config,pikrellcam/scripts}

@@ -19,6 +19,7 @@ conflicts=('pikrellcam')
 backup=('etc/nginx/sites-available/pikrellcam'
         'srv/http/pikrellcam/www/.htpasswd')
 source=('git+https://github.com/billw2/pikrellcam'
+        '50-vcsm.rules'
         'conformance.patch'
         'htpasswd'
         'pikrellcam.nginx'
@@ -27,6 +28,7 @@ source=('git+https://github.com/billw2/pikrellcam'
         'pikrellcam.tmp'
         'user.php')
 sha256sums=('SKIP'
+            'cf165a161848cda32e89cfd48722b64d19cca2f58ade93a5c9c59a23f7b1521b'
             '954b37fd5e6302875a087e2d54f01e513c755aa6c24d26be8b6dc8d6d72d6509'
             'e91161b96d890b37f5970c4acfd99f1f62991d1cb1c018e1f4c267ce185ef4b4'
             'c1ec8f8d25b7ee2a1770f9ded6cf7089454d96c505e76b25c285125a4c536c3a'
@@ -84,6 +86,9 @@ package(){
 
   # install systemd service
   install -Dm644 "../${_pkgname}.service" "${pkgdir}/usr/lib/systemd/system/${_pkgname}.service"
+
+  # install udev rule for vcsm
+  install -Dm644 "../50-vcsm.rules" "${pkgdir}/etc/udev/rules.d/50-vcsm.rules"
 
   # install sudoers entry
   install -dm750 "${pkgdir}/etc/sudoers.d"
